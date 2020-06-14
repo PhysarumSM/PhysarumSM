@@ -109,69 +109,57 @@ $ go build
 Server that responds to requests with "Hello, world". The next few steps will go over how to automatically deploy to the network. For now, you can test it out by runnning `./helloworldserver <port>` where `<port>` is the port the server will listen on. `curl 127.0.0.1:<port>` should return "Hello, world".
 
 ### 6. Containerize microservice and add to hash-lookup
-**TODO:** automate this process. For now, follow these manual steps.
 
-https://github.com/Multi-Tier-Cloud/service-manager/tree/master/proxy
+A tool, `hl-cli`, is provided to automatically containerize you microservice alongside an instance of `proxy` that runs within the container's network namespace. It will also register the microservice with `hl-service`. You don't need to know how `proxy` works for this demo, but you can find more details in the service-manager repo.
 
-Containerized services are packaged alongside an instance of `proxy` that runs within the container's network namespace.
-The `proxy` is needed for a microservice to communicate with rest of system/network.
-To build `proxy`:
-```
-$ cd service-manager/proxy
-$ go build
-```
-
-Create a Docker image for the microservice. You will also need a DockerHub account to host the image. Start by making a new directory. From `demos/helloworld/helloworldserver`, copy in the `helloworldserver` executable. From `service-manager/proxy`, copy in the `proxy` executable and `perf.conf`. Create a Dockerfile as shown below.
-```Dockerfile
-FROM ubuntu:16.04
-
-WORKDIR /app
-
-COPY helloworldserver .
-COPY proxy .
-COPY perf.conf .
-
-ENV PROXY_PORT=4201
-
-ENV PROXY_IP=127.0.0.1
-ENV SERVICE_PORT=8080
-
-CMD ./proxy -bootstrap <bootstrap-p2p-addr> -configfile perf.conf $PROXY_PORT hello-world-server $PROXY_IP:$SERVICE_PORT & ./helloworldserver $SERVICE_PORT
-```
-**TODO:** Pass the bootstrap options (and potential PSK options) to proxy via environment variables?
-
-Replace `<bootstrap-p2p-addr>` above with the multiaddress of an actual bootstrap node.
-Note the special environment variables PROXY_PORT, PROXY_IP, and SERVICE_PORT. These variables will be set dynamically when a new container is spun up (so the values listed in the Dockerfile don't mean anything). PROXY_PORT is the port that the proxy should listen on. PROXY_IP is the IP address of the machine that the proxy/microservice will be running on. SERVICE_PORT is the port that the microserivce should listen on.
-
-
-On your DockerHub, create a repo named hello-world-server. Build the image. Make sure to use your DockerHub username so you can push to DockerHub.
+First we create a json configuration file. Let's call it image-conf.json.
 
 ```
-$ sudo docker image build -t <DockerHub username>/hello-world-server:1.0 .
+{
+    "PerfConf": {
+        "Perf": {
+            "SoftReq": {
+                "RTT": 100
+            },
+            "HardReq": {
+                "RTT": 1000
+            }
+        },
+        "Bootstraps": [
+            "<P2P address of a bootstrap node>"
+        ]
+    },
+    "DockerConf": {
+        "Copy": [
+            ["helloworldserver", "."],
+        ],
+        "Cmd": "./helloworldserver $SERVICE_PORT",
+        "ProxyClientMode": true
+    }
+}
 ```
 
-Push it.
+The first section, PerfConf, dictates what requirements the microservice has when making requests to other services. Don't worry about this for now, as helloworldserver won't be making any requests. It also defines what bootstraps to connect to (for now, soon will not need this as bootstraps will be set dynamically via environment variables).
 
-```
-$ sudo docker image push <DockerHub username>/hello-world-server:1.0
-```
-After pushing, Docker will report the image's "digest", which is a cryptographic hash of the image. Record this value somewhere. If you forget, don't worry, you can always find it on DockerHub.
+The second section, DockerConf, provides instructions for building the Docker image. It defines which files to copy into the image and what command to run to run the microservice. More options exist, see hash-lookup repo.
 
-Next, to register our microservice with the system we'll need to save a copy of the Docker image.
+Note the special environment variable SERVICE_PORT (there also exists PROXY_PORT and PROXY_IP variables). These variables will be set dynamically when a new container is spun up. PROXY_PORT is the port that the proxy should listen on. PROXY_IP is the IP address of the machine that the proxy/microservice will be running on. SERVICE_PORT is the port that the microserivce should listen on.
 
-```
-$ sudo docker save -o hello-world-server.1.0.tar <DockerHub username>/hello-world-server:1.0
-```
-
-We will use the hash lookup cli. 
+Next, on your DockerHub, create a repo named hello-world-server. We can now use the hash lookup cli to build the image, push to DockerHub, and register with hash lookup. You'll also need to copy the helloworldserver binary you created in the previous step into the current directory.
 
 ```
 $ cd hash-lookup/hl-cli
 $ go build
-$ ./hl-cli add --file hello-world-server.1.0.tar <DockerHub username>/hello-world-server@sha256:<image digest/hash> hello-world-server
+$ ./hl-cli --bootstrap <P2P bootstrap addr> add image-conf.json . <DockerHub username>/hello-world-server:1.0 hello-world-server
 ```
+To run hl-cli, provide the P2P address of at least 1 bootstrap node. We are running the "add" command, which takes 4 arguments.
 
-This will add the microservice to the hash lookup service, effectively making it deployable to the system. `<image digest/hash>` is the image digest mentioned above. We are giving it the name "hello-world-server".
+1. The config file, `image-conf.json`.
+2. The directory to find the files needed to build this image, ie. image-conf.json and helloworldserver. Assuming here that it is current directory, `.`.
+3. What you want to name the image, `<DockerHub username>/hello-world-server:1.0`. This should be the full name used to push to DockerHub, ie. `<DockerHub username>/<repo>:<tag>`.
+4. The name used to register this service with hash-lookup, `hello-world-server`.
+
+To list the full set of options: `$ ./hl-cli -h` and `$ ./hl-cli <command> -h`.
 
 ### 7. Test it out
 
