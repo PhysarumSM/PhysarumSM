@@ -1,11 +1,11 @@
-# multi-tier-cloud
+# PhysarumSM
 Docs will go here
 
 ## Getting Started
 **WORK IN PROGRESS**
 
 ### 1. Bootstrapping the P2P Network
-https://github.com/Multi-Tier-Cloud/monitoring
+https://github.com/PhysarumSM/monitoring
 
 To bootstrap the network, we use the `ping-monitor` tool from the monitoring repo. It listens on a well-known TCP port (default: **TCP port 4001**) and accepts connections from peers.
 
@@ -27,7 +27,7 @@ You can create a _Private Network_ where only nodes with a certain pre-shared ke
 To list the full set of options: `$ ./ping-monitor -h`
 
 ### 2. Allocator
-https://github.com/Multi-Tier-Cloud/service-manager
+https://github.com/PhysarumSM/service-manager
 
 A single instance of the `allocator` should run on each machine that you want to spawn new microservice instances. Currently, the microservice instances are realized using Docker containers (in other words, the Docker engine is a pre-requisite that must be installed).
 
@@ -46,7 +46,7 @@ To run the allocator, you must provide the P2P address of at least one bootstrap
 To list the full set of options: `$ ./allocator -h`
 
 ### 3. Hash Lookup
-https://github.com/Multi-Tier-Cloud/hash-lookup
+https://github.com/PhysarumSM/hash-lookup
 
 The hash lookup service, `hl-service`, is used to translate service hashes into Docker hashes. The Docker hashes are used by instances of `allocator` to pull the Docker image corresponding to a given service, and run it. Currently, the service uses `etcd` as the datastore, and thus it is a pre-requisite that must be installed.
 
@@ -99,7 +99,7 @@ You can visit Prometheus' default web portal on port 9090.
 
 
 ### 5. Example "Hello world" microservice
-https://github.com/Multi-Tier-Cloud/demos
+https://github.com/PhysarumSM/demos
 
 ```
 $ cd demos/helloworld/helloworldserver
