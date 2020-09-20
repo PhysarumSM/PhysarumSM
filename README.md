@@ -108,58 +108,54 @@ $ go build
 
 Server that responds to requests with "Hello, world". The next few steps will go over how to automatically deploy to the network. For now, you can test it out by runnning `./helloworldserver <port>` where `<port>` is the port the server will listen on. `curl 127.0.0.1:<port>` should return "Hello, world".
 
-### 6. Containerize microservice and add to hash-lookup
+### 6. Containerize microservice and add to registry-service
 
-A tool, `hl-cli`, is provided to automatically containerize you microservice alongside an instance of `proxy` that runs within the container's network namespace. It will also register the microservice with `hl-service`. You don't need to know how `proxy` works for this demo, but you can find more details in the service-manager repo.
+A tool, `registry-cli`, is provided to automatically containerize you microservice alongside an instance of `proxy` that runs within the container's network namespace. It will also register the microservice with `registry-service`. You don't need to know how `proxy` works for this demo, but you can find more details in the service-manager repo.
 
-First we create a json configuration file. Let's call it image-conf.json.
+First we need a json configuration file. You can find an example for the helloworldserver under demos/helloworld/helloworldserver called service-conf.json.
 
 ```
 {
-    "PerfConf": {
-        "Perf": {
-            "SoftReq": {
-                "RTT": 100
-            },
-            "HardReq": {
-                "RTT": 1000
-            }
-        },
-        "Bootstraps": [
-            "<P2P address of a bootstrap node>"
-        ]
+    "NetworkSoftReq": {
+        "RTT": 500
     },
+    "NetworkHardReq": {
+        "RTT": 1000
+    },
+    "CpuReq": 0,
+    "MemoryReq": 0,
+
     "DockerConf": {
+        "From": "ubuntu:16.04",
         "Copy": [
-            ["helloworldserver", "."],
+            ["helloworldserver", "."]
         ],
-        "Cmd": "./helloworldserver $SERVICE_PORT",
-        "ProxyClientMode": true
+        "Run": [],
+        "Cmd": "./helloworldserver $SERVICE_PORT"
     }
 }
 ```
 
-The first section, PerfConf, dictates what requirements the microservice has when making requests to other services. Don't worry about this for now, as helloworldserver won't be making any requests. It also defines what bootstraps to connect to (for now, soon will not need this as bootstraps will be set dynamically via environment variables).
-
-The second section, DockerConf, provides instructions for building the Docker image. It defines which files to copy into the image and what command to run to run the microservice. More options exist, see hash-lookup repo.
+The first 2 fields dictate network requirements the microservice has when making requests to other services. The next 2 fields dictate compute resources the microservice needs when allocating a new instance of itself. Note the values of these fields are just an example; they aren't really needed in this case since helloworldserver doesn't send requests and should take hardly any CPU/memory. The DockerConf section provides instructions for building the Docker image. It defines what base image to use, which files to copy into the image, and what command to user to launch the microservice. For details on all fields, see the service-registry repo.
 
 Note the special environment variable SERVICE_PORT (there also exists PROXY_PORT and PROXY_IP variables). These variables will be set dynamically when a new container is spun up. PROXY_PORT is the port that the proxy should listen on. PROXY_IP is the IP address of the machine that the proxy/microservice will be running on. SERVICE_PORT is the port that the microserivce should listen on.
 
-Next, on your DockerHub, create a repo named hello-world-server. We can now use the hash lookup cli to build the image, push to DockerHub, and register with hash lookup. You'll also need to copy the helloworldserver binary you created in the previous step into the current directory.
+Next, on your DockerHub, create a repo named hello-world-server. We can now use the registry-cli to build the image, push to DockerHub, and register with registry-service.
 
 ```
-$ cd hash-lookup/hl-cli
+$ cd service-registry/registry-cli
 $ go build
-$ ./hl-cli --bootstrap <P2P bootstrap addr> add image-conf.json . <DockerHub username>/hello-world-server:1.0 hello-world-server
+$ ./registry-cli --bootstrap <P2P bootstrap addr> add --dir <path to helloworldserver> service-conf.json <DockerHub username>/hello-world-server:1.0 hello-world-server
 ```
-To run hl-cli, provide the P2P address of at least 1 bootstrap node. We are running the "add" command, which takes 4 arguments.
+To run registry-cli, provide the P2P address of at least 1 bootstrap node. We are running the "add" command which takes 3 mandatory arguments.
 
-1. The config file, `image-conf.json`.
-2. The directory to find the files needed to build this image, ie. image-conf.json and helloworldserver. Assuming here that it is current directory, `.`.
-3. What you want to name the image, `<DockerHub username>/hello-world-server:1.0`. This should be the full name used to push to DockerHub, ie. `<DockerHub username>/<repo>:<tag>`.
-4. The name used to register this service with hash-lookup, `hello-world-server`.
+1. The config file, `service-conf.json`.
+2. What you want to name the image, `<DockerHub username>/hello-world-server:1.0`. This should be the full name used to push to DockerHub, ie. `<DockerHub username>/<repo>:<tag>`.
+3. The name used to register this service with registry-service, `hello-world-server`.
 
-To list the full set of options: `$ ./hl-cli -h` and `$ ./hl-cli <command> -h`.
+The --dir option should be the path to demos/helloworld/helloworldserver, which is where it looks for files listed in the service-conf.json "Copy" field, ie. the helloworldserver binary.
+
+To list the full set of options: `$ ./registry-cli -h` and `$ ./registry-cli <command> -h`.
 
 ### 7. Test it out
 
