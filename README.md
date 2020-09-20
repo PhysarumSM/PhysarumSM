@@ -45,25 +45,25 @@ To run the allocator, you must provide the P2P address of at least one bootstrap
 
 To list the full set of options: `$ ./allocator -h`
 
-### 3. Hash Lookup
-https://github.com/PhysarumSM/hash-lookup
+### 3. Registry Service
+https://github.com/PhysarumSM/service-registry
 
-The hash lookup service, `hl-service`, is used to translate service hashes into Docker hashes. The Docker hashes are used by instances of `allocator` to pull the Docker image corresponding to a given service, and run it. Currently, the service uses `etcd` as the datastore, and thus it is a pre-requisite that must be installed.
+The registry service, `registry-service`, is used to map service hashes to information about that service, such as its Docker hash and performance requirements. The Docker hashes are used by instances of `allocator` to pull the Docker image corresponding to a given service, and run it. The service uses `etcd` as the datastore, and thus it is a pre-requisite that must be installed. When you run `registry-service`, it will launch its own local instance of `etcd`.
 
-To build `hl-service`:
+To build `registry-service`:
 ```
-$ cd hash-lookup/hl-service
+$ cd service-registry/registry-service
 $ go build
-$ ./hl-service --new-etcd-cluster --etcd-ip <machine's IP address> -bootstrap <bootstrap-p2p-addr>
+$ ./registry-service --new-etcd-cluster --etcd-ip <machine's IP address> -bootstrap <bootstrap-p2p-addr>
 ```
 
-When running `hl-service`, you must provide:
-1. The IP address of a running instance of `etcd`
+When running `registry-service`, you must provide:
+1. The IP address which `etcd` will use to listen/advertise for peers/clients. You probably want to use the IP address of the machine you are running on.
 2. The P2P address of at least one bootstrap node using the `-bootstrap` flag (the flag can be specified multiple times to specify multiple bootstraps).
 
-To list the full set of options: `$ ./hl-service -h`
+To list the full set of options: `$ ./registry-service -h`
 
-Run at least 1 instance of `hl-service` somewhere in the network. Will be used later to register a new microservice with the system.
+Run at least 1 instance of `registry-service` somewhere in the network. Will be used later to register a new microservice with the system.
 
 ### 4. Set Up Prometheus
 **TODO:** System currently hardcoded to request data from existing Prometheus instance. Need to make this configurable. This section will explain how the existing system was set up.
